@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laberinto del Tesoro</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #2C3E50;
+            font-family: Arial, sans-serif;
+            overflow: auto;
+        }
+        #game-container {
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            max-width: 95vw;
+            max-height: 95vh;
+            background-color: #34495E;
+            padding: 10px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        @media (max-width: 1400px) {
+            body {
+                padding: 10px;
+            }
+            #game-container {
+                max-width: 98vw;
+                max-height: 98vh;
+                padding: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="game-container"></div>
+
+<script>
+  // Constantes globales
+const COLORES = {
+    panelSuperior: 0x2C3E50,    // Azul oscuro
+    botonMenu: 0xE74C3C,        // Rojo suave
+    botonHover: 0xC0392B,       // Rojo oscuro
+    ventanaConfirm: 0xECF0F1,   // Gris muy claro
+    botonSi: 0xE74C3C,          // Rojo suave
+    botonNo: 0x2ECC71,          // Verde suave
+    textoClaro: '#ECF0F1',      // Blanco suave
+    textoOscuro: '#2C3E50'      // Azul oscuro
+};
+
+class MenuScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MenuScene' });
+    }
+
+    preload() {
+        this.load.audio('click', 'https://labs.phaser.io/assets/audio/click.wav');
+    }
+
+    create() {
+        const centroX = this.cameras.main.width / 2;
+        const centroY = this.cameras.main.height / 2;
+
+        this.sonidoClick = this.sound.add('click');
+
+        // Fondo con gradiente
+        const fondo = this.add.graphics();
+        fondo.fillGradientStyle(0x2C3E50, 0x2C3E50, 0x34495E, 0x34495E, 1);
+        fondo.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+
+        // Título con efecto
+        const titulo = this.add.text(centroX, 150, 'LABERINTO DEL TESORO', {
+            fontSize: '64px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoClaro,
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        titulo.setShadow(3, 3, '#000000', 5, true, true);
+
+        // Crear botones
+        const botones = [
+            { texto: 'INICIAR JUEGO', escena: 'LaberintoScene' },
+            { texto: 'PUNTUACIONES MÁXIMAS', escena: 'PuntuacionesScene' },
+            { texto: 'SALIR', accion: 'salir' }
+        ];
+
+        botones.forEach((boton, index) => {
+            const y = 350 + (index * 100);
+            
+            const btnContainer = this.add.container(centroX, y);
+            
+            const btnFondo = this.add.rectangle(0, 0, 400, 60, COLORES.botonMenu)
+                .setInteractive();
+            
+            const btnTexto = this.add.text(0, 0, boton.texto, {
+                fontSize: '28px',
+                fontFamily: 'Arial',
+                fill: COLORES.textoClaro,
+                fontWeight: 'bold'
+            }).setOrigin(0.5);
+
+            btnContainer.add([btnFondo, btnTexto]);
+
+            btnFondo.on('pointerover', () => {
+                this.tweens.add({
+                    targets: btnContainer,
+                    scaleX: 1.05,
+                    scaleY: 1.05,
+                    y: y - 3,
+                    duration: 100
+                });
+                btnFondo.setFillStyle(COLORES.botonHover);
+            });
+
+            btnFondo.on('pointerout', () => {
+                this.tweens.add({
+                    targets: btnContainer,
+                    scaleX: 1,
+                    scaleY: 1,
+                    y: y,
+                    duration: 100
+                });
+                btnFondo.setFillStyle(COLORES.botonMenu);
+            });
+
+            btnFondo.on('pointerdown', () => {
+                this.sonidoClick.play();
+                if (boton.escena) {
+                    this.scene.start(boton.escena);
+                } else if (boton.accion === 'salir') {
+                    this.mostrarConfirmacionSalir();
+                }
+            });
+        });
+    }
+
+    mostrarConfirmacionSalir() {
+        const centroX = this.cameras.main.width / 2;
+        const centroY = this.cameras.main.height / 2;
+
+        const overlay = this.add.rectangle(0, 0, 
+            this.cameras.main.width, 
+            this.cameras.main.height, 
+            0x000000, 0.7)
+            .setOrigin(0);
+
+        const ventana = this.add.container(centroX, centroY);
+        
+        const fondoVentana = this.add.rectangle(0, 0, 400, 250, COLORES.ventanaConfirm);
+        const bordeVentana = this.add.rectangle(0, 0, 400, 250, 0x000000, 0)
+            .setStrokeStyle(2, 0x000000, 0.3);
+
+        const titulo = this.add.text(0, -80, '¿Salir del Juego?', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoOscuro,
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        const mensaje = this.add.text(0, -20, 
+            '¿Estás seguro que quieres salir?', {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoOscuro,
+            align: 'center'
+        }).setOrigin(0.5);
+
+        const btnSi = this.add.container(-80, 60);
+        const btnNo = this.add.container(80, 60);
+
+        [
+            { btn: btnSi, texto: 'Sí', color: COLORES.botonSi },
+            { btn: btnNo, texto: 'No', color: COLORES.botonNo }
+        ].forEach(({ btn, texto, color }) => {
+            const fondo = this.add.rectangle(0, 0, 120, 45, color)
+                .setInteractive();
+            const textoBtn = this.add.text(0, 0, texto, {
+                fontSize: '20px',
+                fontFamily: 'Arial',
+                fill: COLORES.textoClaro,
+                fontWeight: 'bold'
+            }).setOrigin(0.5);
+            
+            btn.add([fondo, textoBtn]);
+
+            fondo.on('pointerover', () => {
+                this.tweens.add({
+                    targets: btn,
+                    scaleX: 1.1,
+                    scaleY: 1.1,
+                    y: 57,
+                    duration: 100
+                });
+            });
+
+            fondo.on('pointerout', () => {
+                this.tweens.add({
+                    targets: btn,
+                    scaleX: 1,
+                    scaleY: 1,
+                    y: 60,
+                    duration: 100
+                });
+            });
+        });
+
+        ventana.add([fondoVentana, bordeVentana, titulo, mensaje, btnSi, btnNo]);
+
+        btnSi.first.on('pointerdown', () => {
+            window.close();
+        });
+
+        btnNo.first.on('pointerdown', () => {
+            this.tweens.add({
+                targets: [overlay, ventana],
+                alpha: 0,
+                duration: 200,
+                onComplete: () => {
+                    overlay.destroy();
+                    ventana.destroy();
+                }
+            });
+        });
+
+        overlay.alpha = 0;
+        ventana.alpha = 0;
+        this.tweens.add({
+            targets: [overlay, ventana],
+            alpha: 1,
+            duration: 200
+        });
+    }
+}
+  class PuntuacionesScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'PuntuacionesScene' });
+    }
+
+    create() {
+        const centroX = this.cameras.main.width / 2;
+
+        // Fondo con gradiente
+        const fondo = this.add.graphics();
+        fondo.fillGradientStyle(0x2C3E50, 0x2C3E50, 0x34495E, 0x34495E, 1);
+        fondo.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+
+        // Título con efectos
+        const titulo = this.add.text(centroX, 100, 'MEJORES TIEMPOS', {
+            fontSize: '48px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoClaro,
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        titulo.setShadow(3, 3, '#000000', 5, true, true);
+
+        // Panel para las puntuaciones
+        const panelPuntuaciones = this.add.rectangle(
+            centroX, 
+            400, 
+            600, 
+            500, 
+            0xffffff, 
+            0.1
+        );
+
+        // Obtener y ordenar puntuaciones
+        const puntuaciones = JSON.parse(localStorage.getItem('puntuaciones') || '[]');
+        puntuaciones.sort((a, b) => a.tiempo - b.tiempo);
+
+        const estiloPuntuacion = {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoClaro,
+            align: 'center'
+        };
+
+        // Mostrar puntuaciones o mensaje
+        if (puntuaciones.length > 0) {
+            // Encabezados de columna
+            this.add.text(centroX - 150, 200, 'POSICIÓN', estiloPuntuacion);
+            this.add.text(centroX + 50, 200, 'TIEMPO', estiloPuntuacion);
+
+            // Línea separadora
+            const lineaHeader = this.add.graphics();
+            lineaHeader.lineStyle(2, 0xffffff, 0.3);
+            lineaHeader.lineBetween(centroX - 200, 240, centroX + 200, 240);
+
+            puntuaciones.slice(0, 10).forEach((p, index) => {
+                const y = 280 + (index * 40);
+                const posicion = this.add.text(
+                    centroX - 150,
+                    y,
+                    `${index + 1}º`,
+                    estiloPuntuacion
+                ).setOrigin(0, 0.5);
+
+                const tiempo = this.add.text(
+                    centroX + 50,
+                    y,
+                    `${p.tiempo} segundos`,
+                    estiloPuntuacion
+                ).setOrigin(0, 0.5);
+
+                // Resaltar los tres primeros lugares
+                if (index < 3) {
+                    const colores = ['#FFD700', '#C0C0C0', '#CD7F32'];
+                    posicion.setColor(colores[index]);
+                    tiempo.setColor(colores[index]);
+                }
+            });
+        } else {
+            this.add.text(
+                centroX,
+                400,
+                'Aún no hay puntuaciones\n¡Sé el primero en completar el laberinto!',
+                {
+                    ...estiloPuntuacion,
+                    fontSize: '28px',
+                    align: 'center'
+                }
+            ).setOrigin(0.5);
+        }
+
+        // Botón Volver mejorado
+        const btnContainer = this.add.container(centroX, 800);
+        
+        const btnFondo = this.add.rectangle(0, 0, 300, 60, COLORES.botonMenu)
+            .setInteractive();
+        
+        const btnTexto = this.add.text(0, 0, 'VOLVER AL MENÚ', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoClaro,
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        btnContainer.add([btnFondo, btnTexto]);
+
+        // Efectos del botón
+        btnFondo.on('pointerover', () => {
+            this.tweens.add({
+                targets: btnContainer,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                y: 797,
+                duration: 100
+            });
+            btnFondo.setFillStyle(COLORES.botonHover);
+        });
+
+        btnFondo.on('pointerout', () => {
+            this.tweens.add({
+                targets: btnContainer,
+                scaleX: 1,
+                scaleY: 1,
+                y: 800,
+                duration: 100
+            });
+            btnFondo.setFillStyle(COLORES.botonMenu);
+        });
+
+        btnFondo.on('pointerdown', () => {
+            if (this.sound.get('click')) {
+                this.sound.play('click');
+            }
+            this.scene.start('MenuScene');
+        });
+    }
+}
+  class LaberintoScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'LaberintoScene' });
+    }
+
+    preload() {
+        // Cargar efectos de sonido
+        this.load.audio('recoger_pala', 'https://labs.phaser.io/assets/audio/pickup.wav');
+        this.load.audio('usar_pala', 'https://labs.phaser.io/assets/audio/dig.wav');
+        this.load.audio('victoria', 'https://labs.phaser.io/assets/audio/victory.wav');
+        this.load.audio('derrota', 'https://labs.phaser.io/assets/audio/gameover.wav');
+        this.load.audio('poco_tiempo', 'https://labs.phaser.io/assets/audio/countdown.wav');
+        this.load.audio('paso_normal', 'https://labs.phaser.io/assets/audio/step.wav');
+        this.load.audio('paso_especial', 'https://labs.phaser.io/assets/audio/step2.wav');
+        this.load.audio('musica_fondo', 'https://labs.phaser.io/assets/audio/background.wav');
+    }
+
+    create() {
+        // Configuración del laberinto
+        this.CELDA = 35;      // Tamaño de cada celda
+        this.FILAS = 25;      // Número de filas
+        this.COLUMNAS = 35;   // Número de columnas
+        
+        // Calcular dimensiones y posición del laberinto
+        const anchoLaberinto = this.COLUMNAS * this.CELDA;
+        const altoLaberinto = this.FILAS * this.CELDA;
+        const margenX = (this.cameras.main.width - anchoLaberinto) / 2;
+        const margenY = ((this.cameras.main.height - 70) - altoLaberinto) / 2 + 70;
+
+        // Crear contenedor para el laberinto
+        this.contenedorLaberinto = this.add.container(margenX, margenY);
+        
+        // Variables del juego
+        this.grid = [];
+        this.objetosEspeciales = [];
+        this.contadorObjetos = 0;
+        this.juegoCompletado = false;
+        
+        // Configurar sonidos
+        this.sonidos = {
+            recogerPala: this.sound.add('recoger_pala', { volume: 0.5 }),
+            usarPala: this.sound.add('usar_pala', { volume: 0.5 }),
+            victoria: this.sound.add('victoria', { volume: 0.7 }),
+            derrota: this.sound.add('derrota', { volume: 0.7 }),
+            pocoTiempo: this.sound.add('poco_tiempo', { volume: 0.5 }),
+            pasoNormal: this.sound.add('paso_normal', { volume: 0.3 }),
+            pasoEspecial: this.sound.add('paso_especial', { volume: 0.3 }),
+            musicaFondo: this.sound.add('musica_fondo', { 
+                volume: 0.4,
+                loop: true 
+            })
+        };
+
+        // Iniciar música de fondo
+        this.sonidos.musicaFondo.play();
+
+        // Gráficos del laberinto
+        this.graphics = this.add.graphics();
+        this.contenedorLaberinto.add(this.graphics);
+
+        // Crear jugador
+        const centroX = Math.floor(this.COLUMNAS / 2) * this.CELDA + this.CELDA/2;
+        const centroY = Math.floor(this.FILAS / 2) * this.CELDA + this.CELDA/2;
+        this.jugador = this.add.circle(centroX, centroY, 13, 0xff0000);
+        this.contenedorLaberinto.add(this.jugador);
+
+        // Generar laberinto y objetivo
+        this.generarLaberinto();
+        this.crearObjetivo();
+
+        // Crear panel superior
+        this.crearPanelSuperior();
+
+        // Configurar controles
+        this.cursors = this.input.keyboard.createCursorKeys();
+        
+        // Eventos de teclado
+        this.input.keyboard.on('keydown-SPACE', () => {
+            if (this.juegoCompletado) {
+                this.juegoCompletado = false;
+                this.mensajeVictoria.setVisible(false);
+                this.mensajeDerrota.setVisible(false);
+                this.reiniciarJuego();
+            }
+        });
+
+        this.input.keyboard.on('keydown-ESC', () => {
+            this.mostrarConfirmacionSalir();
+        });
+    }
+        crearPanelSuperior() {
+        // Panel superior con gradiente
+        const panelSuperior = this.add.graphics();
+        panelSuperior.fillGradientStyle(
+            COLORES.panelSuperior, 
+            COLORES.panelSuperior,
+            0x34495E, 
+            0x34495E, 
+            1
+        );
+        panelSuperior.fillRect(0, 0, this.cameras.main.width, 70);
+
+        // Separador decorativo
+        const lineaDecorative = this.add.graphics();
+        lineaDecorative.lineStyle(2, 0xFFFFFF, 0.3);
+        lineaDecorative.lineBetween(0, 69, this.cameras.main.width, 69);
+
+        // Contador de palas con icono
+        const iconoPala = this.add.rectangle(30, 35, 24, 24, 0xF1C40F);
+        this.textoContador = this.add.text(60, 25, 'Palas: 0', {
+            fontSize: '28px',
+            fontFamily: 'Arial',
+            fill: COLORES.textoClaro,
+            padding: { x: 10, y: 5 }
+        }).setShadow(1, 1, '#000000', 3);
+
+        // Temporizador con estilo mejorado
+        this.tiempoRestante = 60;
+        const iconoReloj = this.add.circle(
+            this.cameras.main.width / 2 - 50, 
+            35, 
+            12, 
+            0xF1C40F
+        );
+        this.textoTiempo = this.add.text(
+            this.cameras.main.width / 2, 
+            25, 
+            'Tiempo: 60', {
+                fontSize: '28px',
+                fontFamily: 'Arial',
+                fill: COLORES.textoClaro,
+                padding: { x: 10, y: 5 }
+            }
+        ).setOrigin(0.5, 0)
+         .setShadow(1, 1, '#000000', 3);
+
+        // Configurar temporizador
+        this.time.addEvent({
+            delay: 1000,
+            callback: this.actualizarTemporizador,
+            callbackScope: this,
+            loop: true
+        });
+
+        // Botón de menú principal
+        const btnSalir = this.add.container(this.cameras.main.width - 120, 35);
+        
+        const fondoBoton = this.add.rectangle(
+            0, 0,
+            160, 
+            40,
+            COLORES.botonMenu
+        ).setInteractive();
+        
+        const textoBoton = this.add.text(
+            0, 
+            0,
+            'MENÚ PRINCIPAL', {
+                fontSize: '18px',
+                fontFamily: 'Arial',
+                fill: COLORES.textoClaro,
+                fontWeight: 'bold'
+            }
+        ).setOrigin(0.5);
+
+        btnSalir.add([fondoBoton, textoBoton]);
+
+        // Efectos del botón
+        fondoBoton.on('pointerover', () => {
+            fondoBoton.setFillStyle(COLORES.botonHover);
+            btnSalir.setScale(1.05);
+            this.tweens.add({
+                targets: btnSalir,
+                y: 33,
+                duration: 100
+            });
+        });
+
+        fondoBoton.on('pointerout', () => {
+            fondoBoton.setFillStyle(COLORES.botonMenu);
+            btnSalir.setScale(1);
+            this.tweens.add({
+                targets: btnSalir,
+                y: 35,
+                duration: 100
+            });
+        });
+
+        fondoBoton.on('pointerdown', () => {
+            if (this.sonidos) this.sonidos.click.play();
+            this.mostrarConfirmacionSalir();
+        });
+
+        // Mensajes de victoria y derrota
+        this.mensajeVictoria = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            '', {
+                fontSize: '32px',
+                fontFamily: 'Arial',
+                fill: '#000',
+                backgroundColor: '#ffffff',
+                padding: { x: 20, y: 10 },
+                align: 'center'
+            }
+        ).setOrigin(0.5).setVisible(false);
+
+        this.mensajeDerrota = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            '¡Tiempo Agotado!\nPresiona ESPACIO para reintentar\nESC para volver al menú', {
+                fontSize: '32px',
+                fontFamily: 'Arial',
+                fill: '#000',
+                backgroundColor: '#ffffff',
+                padding: { x: 20, y: 10 },
+                align: 'center'
+            }
+        ).setOrigin(0.5).setVisible(false);
+    }
+
+    generarLaberinto() {
+        this.graphics.clear();
+        this.grid = [];
+        
+        // Primero llenar todo con paredes
+        for (let fila = 0; fila < this.FILAS; fila++) {
+            this.grid[fila] = [];
+            for (let columna = 0; columna < this.COLUMNAS; columna++) {
+                this.grid[fila][columna] = 'pared';
+            }
+        }
+
+        // Asegurar área central navegable
+        const centroY = Math.floor(this.FILAS / 2);
+        const centroX = Math.floor(this.COLUMNAS / 2);
+        
+        // Crear área segura en el centro
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const y = centroY + dy;
+                const x = centroX + dx;
+                if (y >= 0 && y < this.FILAS && x >= 0 && x < this.COLUMNAS) {
+                    this.grid[y][x] = 'navegable';
+                }
+            }
+        }
+
+        // Generar caminos aleatorios
+        this.generarCaminosAleatorios(centroX, centroY);
+
+        // Agregar celdas especiales y más caminos
+        for (let fila = 0; fila < this.FILAS; fila++) {
+            for (let columna = 0; columna < this.COLUMNAS; columna++) {
+                if (this.grid[fila][columna] === 'pared') {
+                    const probabilidad = Math.random();
+                    if (probabilidad < 0.2) {
+                        this.grid[fila][columna] = 'navegable';
+                    } else if (probabilidad < 0.5) {
+                        this.grid[fila][columna] = 'especial';
+                    }
+                }
+            }
+        }
+
+        // Dibujar el laberinto
+        for (let fila = 0; fila < this.FILAS; fila++) {
+            for (let columna = 0; columna < this.COLUMNAS; columna++) {
+                this.pintarCelda(columna, fila, this.grid[fila][columna]);
+            }
+        }
+
+        this.colocarObjetosEspeciales();
+    }
+        generarCaminosAleatorios(startX, startY) {
+        const visitados = new Set();
+        const pila = [{x: startX, y: startY}];
+        
+        while (pila.length > 0) {
+            const actual = pila[pila.length - 1];
+            const key = `${actual.x},${actual.y}`;
+            visitados.add(key);
+
+            const direcciones = [
+                {dx: 0, dy: -1},  // arriba
+                {dx: 1, dy: 0},   // derecha
+                {dx: 0, dy: 1},   // abajo
+                {dx: -1, dy: 0}   // izquierda
+            ];
+
+            direcciones.sort(() => Math.random() - 0.5);
+
+            let encontroCamino = false;
+            for (const dir of direcciones) {
+                const nuevoX = actual.x + dir.dx * 2;
+                const nuevoY = actual.y + dir.dy * 2;
+                const nuevaKey = `${nuevoX},${nuevoY}`;
+
+                if (this.esPosicionValida(nuevoX, nuevoY) && !visitados.has(nuevaKey)) {
+                    this.grid[actual.y + dir.dy][actual.x + dir.dx] = 'navegable';
+                    this.grid[nuevoY][nuevoX] = 'navegable';
+                    pila.push({x: nuevoX, y: nuevoY});
+                    encontroCamino = true;
+                    break;
+                }
+            }
+
+            if (!encontroCamino) {
+                pila.pop();
+            }
+        }
+    }
+
+    pintarCelda(x, y, tipo) {
+        const colores = {
+            navegable: 0x32CD32,  // Verde claro
+            especial: 0x8B4513,   // Marrón
+            pared: 0x2C3E50       // Azul oscuro
+        };
+
+        this.graphics.fillStyle(colores[tipo]);
+        this.graphics.fillRect(x * this.CELDA, y * this.CELDA, this.CELDA, this.CELDA);
+        
+        // Agregar borde más suave
+        this.graphics.lineStyle(1, 0x000000, 0.3);
+        this.graphics.strokeRect(x * this.CELDA, y * this.CELDA, this.CELDA, this.CELDA);
+    }
+
+    crearObjetivo() {
+        if (this.objetivo) {
+            this.objetivo.destroy();
+        }
+        
+        // Elegir una posición alejada del centro para el tesoro
+        const centroX = Math.floor(this.COLUMNAS / 2);
+        const centroY = Math.floor(this.FILAS / 2);
+        let posX, posY;
+        
+        // Elegir un cuadrante aleatorio alejado del centro
+        const cuadrante = Math.floor(Math.random() * 4);
+        switch(cuadrante) {
+            case 0: // Superior izquierdo
+                posX = Math.floor(this.COLUMNAS * 0.25);
+                posY = Math.floor(this.FILAS * 0.25);
+                break;
+            case 1: // Superior derecho
+                posX = Math.floor(this.COLUMNAS * 0.75);
+                posY = Math.floor(this.FILAS * 0.25);
+                break;
+            case 2: // Inferior izquierdo
+                posX = Math.floor(this.COLUMNAS * 0.25);
+                posY = Math.floor(this.FILAS * 0.75);
+                break;
+            case 3: // Inferior derecho
+                posX = Math.floor(this.COLUMNAS * 0.75);
+                posY = Math.floor(this.FILAS * 0.75);
+                break;
+        }
+        
+        // Preparar el área alrededor del tesoro
+        for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+                if (this.esPosicionValida(posX + dx, posY + dy)) {
+                    if ((Math.abs(dx) === 2 || Math.abs(dy) === 2) && 
+                        !(Math.abs(dx) === 2 && dy === 0) && 
+                        !(Math.abs(dy) === 2 && dx === 0)) {
+                        this.grid[posY + dy][posX + dx] = 'pared';
+                    }
+                    else if (Math.abs(dx) === 1 || Math.abs(dy) === 1) {
+                        this.grid[posY + dy][posX + dx] = 'especial';
+                    }
+                    else {
+                        this.grid[posY + dy][posX + dx] = 'navegable';
+                    }
+                    this.pintarCelda(posX + dx, posY + dy, this.grid[posY + dy][posX + dx]);
+                }
+            }
+        }
+
+        // Crear caminos de acceso
+        const direcciones = [
+            {dx: 0, dy: -2},
+            {dx: 2, dy: 0},
+            {dx: 0, dy: 2},
+            {dx: -2, dy: 0}
+        ];
+        
+        const numCaminos = 2 + Math.floor(Math.random() * 2);
+        const caminosElegidos = [...direcciones]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, numCaminos);
+
+        for (const dir of caminosElegidos) {
+            if (this.esPosicionValida(posX + dir.dx, posY + dir.dy)) {
+                this.grid[posY + dir.dy/2][posX + dir.dx/2] = 'especial';
+                this.grid[posY + dir.dy][posX + dir.dx] = 'navegable';
+                this.pintarCelda(posX + dir.dx/2, posY + dir.dy/2, 'especial');
+                this.pintarCelda(posX + dir.dx, posY + dir.dy, 'navegable');
+            }
+        }
+        
+        // Crear el tesoro con efecto de brillo
+        this.objetivo = this.add.star(
+            posX * this.CELDA + this.CELDA/2,
+            posY * this.CELDA + this.CELDA/2,
+            5, 10, 20, 0xFFD700
+        );
+        this.contenedorLaberinto.add(this.objetivo);
+
+        // Añadir efecto de brillo
+        this.tweens.add({
+            targets: this.objetivo,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+    }
+        colocarObjetosEspeciales() {
+        this.objetosEspeciales.forEach(obj => obj.destroy());
+        this.objetosEspeciales = [];
+        
+        const celdasPosibles = [];
+        for (let y = 0; y < this.FILAS; y++) {
+            for (let x = 0; x < this.COLUMNAS; x++) {
+                if (this.grid[y][x] === 'navegable' && this.tieneCeldaEspecialCerca(x, y)) {
+                    celdasPosibles.push({x, y});
+                }
+            }
+        }
+
+        const numObjetos = Math.max(3, Math.min(6, celdasPosibles.length));
+        for (let i = 0; i < numObjetos; i++) {
+            if (celdasPosibles.length > 0) {
+                const indice = Math.floor(Math.random() * celdasPosibles.length);
+                const posicion = celdasPosibles.splice(indice, 1)[0];
+                
+                const objeto = this.add.circle(
+                    posicion.x * this.CELDA + this.CELDA/2,
+                    posicion.y * this.CELDA + this.CELDA/2,
+                    10,
+                    0xFFFF00
+                );
+                this.contenedorLaberinto.add(objeto);
+                this.objetosEspeciales.push(objeto);
+                objeto.setData('gridX', posicion.x);
+                objeto.setData('gridY', posicion.y);
+
+                // Añadir efecto de flotación
+                this.tweens.add({
+                    targets: objeto,
+                    y: `+=${5}`,
+                    duration: 1000,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+            }
+        }
+    }
+
+    tieneCeldaEspecialCerca(x, y) {
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const newY = y + dy;
+                const newX = x + dx;
+                if (this.esPosicionValida(newX, newY) && 
+                    this.grid[newY][newX] === 'especial') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    esPosicionValida(x, y) {
+        return x >= 0 && x < this.COLUMNAS && y >= 0 && y < this.FILAS;
+    }
+
+    update() {
+        if (!this.juegoCompletado) {
+            const velocidad = 5;
+            
+            if (this.cursors.left.isDown) {
+                this.moverJugador(-velocidad, 0);
+            }
+            if (this.cursors.right.isDown) {
+                this.moverJugador(velocidad, 0);
+            }
+            if (this.cursors.up.isDown) {
+                this.moverJugador(0, -velocidad);
+            }
+            if (this.cursors.down.isDown) {
+                this.moverJugador(0, velocidad);
+            }
+            
+            this.recogerObjetos();
+            this.verificarObjetivo();
+        }
+    }
+
+    moverJugador(dx, dy) {
+        const nuevaX = this.jugador.x + dx;
+        const nuevaY = this.jugador.y + dy;
+        
+        const celdaX = Math.floor(nuevaX / this.CELDA);
+        const celdaY = Math.floor(nuevaY / this.CELDA);
+        
+        if (celdaX >= 0 && celdaX < this.COLUMNAS && celdaY >= 0 && celdaY < this.FILAS) {
+            const tipo = this.grid[celdaY][celdaX];
+            
+            if (tipo === 'navegable' || (tipo === 'especial' && this.contadorObjetos > 0)) {
+                this.jugador.x = nuevaX;
+                this.jugador.y = nuevaY;
+                
+                if (tipo === 'navegable') {
+                    this.sonidos.pasoNormal.play();
+                } else if (tipo === 'especial') {
+                    this.sonidos.pasoEspecial.play();
+                    this.sonidos.usarPala.play();
+                    this.contadorObjetos--;
+                    this.textoContador.setText(`Palas: ${this.contadorObjetos}`);
+                    this.grid[celdaY][celdaX] = 'navegable';
+                    this.pintarCelda(celdaX, celdaY, 'navegable');
+                }
+            }
+        }
+    }
+        recogerObjetos() {
+        const jugadorCeldaX = Math.floor(this.jugador.x / this.CELDA);
+        const jugadorCeldaY = Math.floor(this.jugador.y / this.CELDA);
+        
+        this.objetosEspeciales = this.objetosEspeciales.filter(objeto => {
+            if (objeto.getData('gridX') === jugadorCeldaX && 
+                objeto.getData('gridY') === jugadorCeldaY) {
+                
+                // Efecto de recolección
+                this.tweens.add({
+                    targets: objeto,
+                    scaleX: 0,
+                    scaleY: 0,
+                    alpha: 0,
+                    duration: 200,
+                    onComplete: () => objeto.destroy()
+                });
+
+                this.sonidos.recogerPala.play();
+                this.contadorObjetos++;
+                this.textoContador.setText(`Palas: ${this.contadorObjetos}`);
+                
+                // Efecto de texto flotante
+                const textoFlotante = this.add.text(
+                    objeto.x,
+                    objeto.y,
+                    '+1', {
+                        fontSize: '20px',
+                        fill: '#FFD700'
+                    }
+                ).setOrigin(0.5);
+
+                this.tweens.add({
+                    targets: textoFlotante,
+                    y: textoFlotante.y - 50,
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => textoFlotante.destroy()
+                });
+
+                return false;
+            }
+            return true;
+        });
+    }
+
+    verificarObjetivo() {
+        const distancia = Phaser.Math.Distance.Between(
+            this.jugador.x, this.jugador.y,
+            this.objetivo.x, this.objetivo.y
+        );
+        
+        if (distancia < 20) {
+            this.juegoCompletado = true;
+            const tiempoUsado = 60 - this.tiempoRestante;
+            
+            this.sonidos.musicaFondo.stop();
+            this.sonidos.victoria.play();
+            
+            const puntuaciones = JSON.parse(localStorage.getItem('puntuaciones') || '[]');
+            puntuaciones.push({ tiempo: tiempoUsado });
+            localStorage.setItem('puntuaciones', JSON.stringify(puntuaciones));
+            
+            this.mensajeVictoria
+                .setText(`¡Has Ganado!\nTiempo: ${tiempoUsado} segundos\nPresiona ESPACIO para reiniciar\nESC para volver al menú`)
+                .setVisible(true);
+        }
+    }
+
+    actualizarTemporizador() {
+        if (!this.juegoCompletado && this.tiempoRestante > 0) {
+            this.tiempoRestante--;
+            this.textoTiempo.setText(`Tiempo: ${this.tiempoRestante}`);
+            
+            if (this.tiempoRestante <= 10) {
+                this.textoTiempo.setFill('#ff0000');
+                if (this.tiempoRestante === 10) {
+                    this.sonidos.pocoTiempo.play();
+                }
+            }
+            
+            if (this.tiempoRestante === 0) {
+                this.tiempoAgotado();
+            }
+        }
+    }
+
+    tiempoAgotado() {
+        this.juegoCompletado = true;
+        this.sonidos.musicaFondo.stop();
+        this.sonidos.derrota.play();
+        this.mensajeDerrota.setVisible(true);
+    }
+
+    reiniciarJuego() {
+        this.contadorObjetos = 0;
+        this.textoContador.setText('Palas: 0');
+        this.tiempoRestante = 60;
+        this.textoTiempo.setText('Tiempo: 60');
+        this.textoTiempo.setFill(COLORES.textoClaro);
+        
+        const centroX = Math.floor(this.COLUMNAS / 2) * this.CELDA + this.CELDA/2;
+        const centroY = Math.floor(this.FILAS / 2) * this.CELDA + this.CELDA/2;
+        this.jugador.x = centroX;
+        this.jugador.y = centroY;
+        
+        this.mensajeDerrota.setVisible(false);
+        this.mensajeVictoria.setVisible(false);
+        this.juegoCompletado = false;
+        
+        this.sonidos.musicaFondo.stop();
+        this.sonidos.musicaFondo.play();
+        
+        this.generarLaberinto();
+        this.crearObjetivo();
+    }
+}
+
+// Configuración final del juego
+const config = {
+    type: Phaser.AUTO,
+    width: 1400,
+    height: 1000,
+    parent: 'game-container',
+    backgroundColor: '#ffffff',
+    scene: [MenuScene, PuntuacionesScene, LaberintoScene]
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
